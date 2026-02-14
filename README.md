@@ -45,16 +45,22 @@ interface AppStorage {
 ```typescript
 import { oto } from "oto-storage";
 
+// For localStorage (default)
 const storage = oto<AppStorage>({
   prefix: "myApp-",
-  driver: "local", // or 'session'
+});
+
+// For sessionStorage
+const session = oto<AppStorage>({
+  prefix: "myApp-",
+  type: "session",
 });
 ```
 
 **_3. Use it like a regular object_**
 
 ```typescript
-// SETTING: Automatically stringified and saved to 'myApp_theme'
+// SETTING: Automatically stringified and saved to 'myApp-theme'
 storage.theme = "dark";
 
 // GETTING: Automatically parsed and typed
@@ -67,6 +73,115 @@ delete storage.theme;
 
 // CLEAR: Clear entire record
 storage.clearAll();
+```
+
+### 📖 Comprehensive Examples
+
+**Working with Complex Objects**
+
+```typescript
+interface UserData {
+  id: string;
+  name: string;
+  preferences: {
+    theme: "light" | "dark";
+    notifications: boolean;
+  };
+}
+
+const storage = oto<{ user: UserData | null }>({ prefix: "app-" });
+
+// Store complex objects - automatically serialized
+storage.user = {
+  id: "123",
+  name: "Alice",
+  preferences: {
+    theme: "dark",
+    notifications: true,
+  },
+};
+
+// Retrieve - fully typed with autocomplete
+console.log(storage.user?.preferences.theme); // "dark"
+```
+
+**Checking if a Key Exists**
+
+```typescript
+const storage = oto<{ token: string | null }>({ prefix: "auth-" });
+
+// Use 'in' operator to check if key exists in storage
+if ("token" in storage) {
+  console.log("User is authenticated");
+}
+
+// Or check directly (returns undefined for non-existent keys)
+if (storage.token) {
+  console.log("Token exists:", storage.token);
+}
+```
+
+**Session Storage**
+
+```typescript
+const session = oto<{ temporaryData: string }>({
+  prefix: "temp-",
+  type: "session", // Uses sessionStorage instead of localStorage
+});
+
+session.temporaryData = "This will be cleared when tab closes";
+```
+
+**Multiple Namespaced Storages**
+
+```typescript
+const userPrefs = oto<{ theme: string }>({ prefix: "user-prefs-" });
+const appState = oto<{ sidebarOpen: boolean }>({ prefix: "app-" });
+
+userPrefs.theme = "dark";
+appState.sidebarOpen = true;
+
+// Keys are stored separately: 'user-prefs-theme' and 'app-sidebarOpen'
+```
+
+**Deleting and Clearing**
+
+```typescript
+const storage = oto<{ count: number; name: string }>({ prefix: "demo-" });
+
+storage.count = 42;
+storage.name = "Test";
+
+// Delete single key
+delete storage.count;
+
+// Clear all keys with this storage's prefix
+storage.clearAll();
+```
+
+**Type Safety at Work**
+
+```typescript
+interface AppStorage {
+  count: number;
+  items: string[];
+}
+
+const storage = oto<AppStorage>({ prefix: "app-" });
+
+storage.count = 10; // ✓ Works
+storage.count = "ten"; // ✗ TypeScript error: Type 'string' is not assignable to type 'number'
+
+storage.items = ["a", "b"]; // ✓ Works
+storage.items = "abc"; // ✗ TypeScript error: Type 'string' is not assignable to type 'string[]'
+```
+
+**Version Export**
+
+```typescript
+import { oto, version } from "oto-storage";
+
+console.log(`Using oto-storage v${version}`);
 ```
 
 ### 🛠️ Architecture Decisions

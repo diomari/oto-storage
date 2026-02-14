@@ -9,11 +9,18 @@
       const storage = oto({ prefix: "demo_", type: "session" });
 
       // Test Set
-      storage.user = { name: "Gemini", role: "AI" };
+      storage.user = {
+        name: "Gemini",
+        role: "AI",
+        products: [
+          { name: "sugar", quantity: 100 },
+          { name: "salt", quantity: 50 },
+        ],
+      };
       storage.theme = "New";
       storage.power = { level: 9000 };
 
-      storage.clearAll();
+      // storage.clearAll();
       // Test Get
       console.log("User from storage:", storage.user);
 

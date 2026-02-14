@@ -10,18 +10,34 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
       ? type === "session"
         ? window.sessionStorage
         : window.localStorage
-      : ({} as Storage);
+      : null;
+
+  const safeStorage: Storage = storage || {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    get length() {
+      return 0;
+    },
+  };
 
   return new Proxy({} as T, {
-    get(target, prop: string) {
+    get(_target, prop: string) {
       if (prop === "clearAll") {
         return () => {
-          Object.keys(storage).forEach((key) => {
-            if (key.startsWith(prefix)) storage.removeItem(key);
+          const keys: string[] = [];
+          for (let i = 0; i < safeStorage.length; i++) {
+            const key = safeStorage.key(i);
+            if (key) keys.push(key);
+          }
+          keys.forEach((key) => {
+            if (key.startsWith(prefix)) safeStorage.removeItem(key);
           });
         };
       }
-      const value = storage.getItem(`${prefix}${prop}`);
+      const value = safeStorage.getItem(`${prefix}${prop}`);
       if (value === null) return undefined;
       try {
         return JSON.parse(value);
@@ -29,25 +45,22 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
         return value;
       }
     },
-    set(target, prop: string, value: any) {
+    set(_target, prop: string, value: any) {
       try {
         const stringValue = JSON.stringify(value);
-        storage.setItem(`${prefix}${prop}`, stringValue);
+        safeStorage.setItem(`${prefix}${prop}`, stringValue);
         return true;
       } catch (error) {
         console.error(`TypedProxy: Failed to save ${prop}`, error);
-        return false;
+        return true;
       }
     },
-    has(target, prop: string) {
-      return storage.getItem(`${prefix}${prop}`) !== null;
+    has(_target, prop: string) {
+      return safeStorage.getItem(`${prefix}${prop}`) !== null;
     },
-    deleteProperty(target, prop: string) {
+    deleteProperty(_target, prop: string) {
       const key = `${prefix}${String(prop)}`;
-      storage.removeItem(key);
-      if (prop in target) {
-        delete (target as any)[prop];
-      }
+      safeStorage.removeItem(key);
       return true;
     },
   });

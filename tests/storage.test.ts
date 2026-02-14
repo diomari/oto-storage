@@ -251,7 +251,6 @@ describe("oto - Storage Proxy Library", () => {
 
     it("should not affect other prefixes", () => {
       const storage1 = oto<{ key: string }>({ prefix: "user_" });
-      const storage2 = oto<{ key: string }>({ prefix: "admin_" });
 
       mockStorage = {
         user_key: '"user-value"',
