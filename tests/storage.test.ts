@@ -435,4 +435,49 @@ describe("oto - Storage Proxy Library", () => {
       );
     });
   });
+
+  describe("Nested Property Updates", () => {
+    it("should update nested object properties", () => {
+      const storage = oto<{ user: { name: string; age: number } }>();
+      storage.user = { name: "Alice", age: 30 };
+      
+      // Update nested property
+      storage.user.name = "Bob";
+      
+      expect(storage.user.name).toBe("Bob");
+      expect(storage.user.age).toBe(30);
+      expect(storage.user).toEqual({ name: "Bob", age: 30 });
+    });
+
+    it("should handle deeply nested property updates", () => {
+      const storage = oto<{ config: { theme: { colors: { primary: string } } } }>();
+      storage.config = { theme: { colors: { primary: "#ff0000" } } };
+      
+      // Update deeply nested property
+      storage.config.theme.colors.primary = "#00ff00";
+      
+      expect(storage.config.theme.colors.primary).toBe("#00ff00");
+      expect(storage.config).toEqual({ theme: { colors: { primary: "#00ff00" } } });
+    });
+
+    it("should create nested objects when setting deep properties", () => {
+      const storage = oto<{ user: { profile?: { bio?: string } } }>();
+      storage.user = { profile: {} };
+      
+      // Set deeply nested property that doesn't exist yet
+      storage.user.profile!.bio = "Hello World";
+      
+      expect(storage.user.profile?.bio).toBe("Hello World");
+    });
+
+    it("should handle multiple nested property updates", () => {
+      const storage = oto<{ settings: { theme: string; lang: string } }>();
+      storage.settings = { theme: "light", lang: "en" };
+      
+      storage.settings.theme = "dark";
+      storage.settings.lang = "fr";
+      
+      expect(storage.settings).toEqual({ theme: "dark", lang: "fr" });
+    });
+  });
 });

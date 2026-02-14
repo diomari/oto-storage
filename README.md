@@ -39,13 +39,15 @@ Oto storage uses the JavaScript Proxy API to let you interact with browser stora
 
 **Key Features**
 
-- Type-Safe: Full autocomplete and build-time error checking.
+- **Type-Safe**: Full autocomplete and build-time error checking.
 
-- Zero Boilerplate: No more manual JSON parsing.
+- **Zero Boilerplate**: No more manual JSON parsing.
 
-- Driver Support: Switch between localStorage and sessionStorage with one flag.
+- **Nested Property Updates**: Update deeply nested properties directly (e.g., `storage.user.profile.bio = "Hello"`).
 
-- Collision Protection: Automatic key prefixing (namespacing).
+- **Driver Support**: Switch between localStorage and sessionStorage with one flag.
+
+- **Collision Protection**: Automatic key prefixing (namespacing).
 
 ### 🚀 Quick Start
 
@@ -122,6 +124,40 @@ storage.user = {
 
 // Retrieve - fully typed with autocomplete
 console.log(storage.user?.preferences.theme); // "dark"
+```
+
+**Updating Nested Properties**
+
+Unlike basic storage wrappers, oto-storage allows you to update nested properties directly without overwriting the entire object:
+
+```typescript
+interface Settings {
+  user: {
+    name: string;
+    preferences: {
+      theme: "light" | "dark";
+      notifications: boolean;
+    };
+  };
+}
+
+const storage = oto<Settings>({ prefix: "app-" });
+
+// Initialize with an object
+storage.user = {
+  name: "Alice",
+  preferences: {
+    theme: "light",
+    notifications: true,
+  },
+};
+
+// Update just the nested property - other properties remain unchanged
+storage.user.preferences.theme = "dark";
+
+console.log(storage.user.preferences.theme); // "dark"
+console.log(storage.user.name);              // "Alice" (unchanged)
+console.log(storage.user.preferences.notifications); // true (unchanged)
 ```
 
 **Checking if a Key Exists**
