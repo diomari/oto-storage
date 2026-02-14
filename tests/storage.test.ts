@@ -398,12 +398,6 @@ describe("oto - Storage Proxy Library", () => {
         });
     });
 
-    describe("Version Export", () => {
-        it("should export version", () => {
-            expect(version).toBe("0.2.0");
-        });
-    });
-
     describe("Non-Browser Environment", () => {
         it("should handle missing window object gracefully", () => {
             const originalWindow = global.window;

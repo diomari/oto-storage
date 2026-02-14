@@ -1,0 +1,47 @@
+name: Publish to NPM
+
+on:
+    push:
+        branches: [main]
+        paths: ["package.json", "package-lock.json"]
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Check if version exists on npm
+              id: check
+              run: |
+                  VERSION=$(node -p "require('./package.json').version")
+                  if npm view oto-storage@$VERSION version &>/dev/null; then
+                    echo "Version $VERSION already published on npm"
+                    echo "exists=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "New version $VERSION to publish"
+                    echo "exists=false" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: Install dependencies
+              if: steps.check.outputs.exists == 'false'
+              run: npm ci
+
+            - name: Run tests
+              if: steps.check.outputs.exists == 'false'
+              run: npm test
+
+            - name: Build package
+              if: steps.check.outputs.exists == 'false'
+              run: npm run build
+
+            - name: Publish to npm
+              if: steps.check.outputs.exists == 'false'
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
