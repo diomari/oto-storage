@@ -6,12 +6,10 @@ A lightweight, Proxy-based wrapper for `localStorage` and `sessionStorage` with 
 
 Working with browser storage usually involves repetitive `JSON.parse` and `JSON.stringify` calls, manual key prefixing to avoid collisions, and a total lack of Type Safety.
 
-TypeScript
-
-```
+```typescript
 // The old, "clunky" way
-const user = JSON.parse(localStorage.getItem('user_data') || '{}');
-localStorage.setItem('user_data', JSON.stringify({ ...user, theme: 'dark' }));
+const user = JSON.parse(localStorage.getItem("user_data") || "{}");
+localStorage.setItem("user_data", JSON.stringify({ ...user, theme: "dark" }));
 ```
 
 ### ✨ The Solution
@@ -31,37 +29,34 @@ OtoStorage uses the JavaScript Proxy API to let you interact with browser storag
 ### 🚀 Quick Start
 
 1. Define your Schema
-   TypeScript
 
-```
+```typescript
 interface AppStorage {
-  theme: 'light' | 'dark';
+  theme: "light" | "dark";
   viewCount: number;
   user: { id: string; name: string } | null;
 }
 ```
 
 2. Initialize
-   TypeScript
 
-```
-import { createStorage } from './ultra-storage';
+```typescript
+import { createStorage } from "./ultra-storage";
 
 const storage = createStorage<AppStorage>({
-  prefix: 'myApp\_',
-  driver: 'local' // or 'session'
+  prefix: "myApp\_",
+  driver: "local", // or 'session'
 });
 ```
 
 3. Use it like a regular object
-   TypeScript
 
-```
+```typescript
 // SETTING: Automatically stringified and saved to 'myApp_theme'
-storage.theme = 'dark';
+storage.theme = "dark";
 
 // GETTING: Automatically parsed and typed
-if (storage.theme === 'dark') {
+if (storage.theme === "dark") {
   console.log("Dark mode active!");
 }
 ```
