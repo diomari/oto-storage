@@ -1,3 +1,5 @@
+![Oto mascot](./images/oto-mascot.jpg)
+
 # OtoStorage
 
 A lightweight, Proxy-based wrapper for `localStorage` and `sessionStorage` with full TypeScript type safety.
@@ -28,7 +30,7 @@ OtoStorage uses the JavaScript Proxy API to let you interact with browser storag
 
 ### 🚀 Quick Start
 
-1. Define your Schema
+**_1. Define your Schema_**
 
 ```typescript
 interface AppStorage {
@@ -38,10 +40,10 @@ interface AppStorage {
 }
 ```
 
-2. Initialize
+**_2. Initialize_**
 
 ```typescript
-import { createStorage } from "./ultra-storage";
+import { createStorage } from "./oto-storage";
 
 const storage = createStorage<AppStorage>({
   prefix: "myApp\_",
@@ -49,7 +51,7 @@ const storage = createStorage<AppStorage>({
 });
 ```
 
-3. Use it like a regular object
+**_3. Use it like a regular object_**
 
 ```typescript
 // SETTING: Automatically stringified and saved to 'myApp_theme'
@@ -63,11 +65,11 @@ if (storage.theme === "dark") {
 
 ### 🛠️ Architecture Decisions
 
-Why Proxy?
+**_Why Proxy?_**
 I chose the Proxy API over a standard Class-based approach to improve Developer Experience (DX). By intercepting `get` and `set` traps, we eliminate the need for `.getItem()` or `.setItem()` methods, making the storage feel "native" to JavaScript.
 
-Type Safety via Generics
+**_Type Safety via Generics_**
 The library uses TypeScript Generics to map the user-provided interface to the Proxy. This ensures that if a developer tries to assign a `string` to a `number` field, the IDE will catch the error before the code even runs.
 
-The "Storage Driver" Strategy
+**_The "Storage Driver" Strategy_**
 By implementing a common interface for `localStorage` and `sessionStorage`, the library remains agnostic of the underlying engine. This makes it easy to extend with a "Mock Driver" for server-side rendering (SSR) or testing environments.
