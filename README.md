@@ -4,6 +4,24 @@
 
 A lightweight, Proxy-based wrapper for `localStorage` and `sessionStorage` with full TypeScript type safety.
 
+### 📦 Installation
+
+```bash
+npm install oto-storage
+```
+
+Or with yarn:
+
+```bash
+yarn add oto-storage
+```
+
+Or with pnpm:
+
+```bash
+pnpm add oto-storage
+```
+
 ### ⚡ The Problem
 
 Working with browser storage usually involves repetitive `JSON.parse` and `JSON.stringify` calls, manual key prefixing to avoid collisions, and a total lack of Type Safety.
