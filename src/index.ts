@@ -44,7 +44,7 @@ function createNestedProxy(
 
       const value = current[prop];
 
-      if (value !== null && typeof value === "object") {
+      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
         return createNestedProxy(safeStorage, prefix, rootKey, [...path, prop]);
       }
       return value;
@@ -89,8 +89,13 @@ function createNestedProxy(
       const current = getValueAtPath(safeStorage, prefix, rootKey, path);
       if (current === null || current === undefined) return undefined;
       if (!(prop in current)) return undefined;
+      const value = current[prop];
+      const descriptorValue =
+        value !== null && typeof value === "object" && !Array.isArray(value)
+          ? createNestedProxy(safeStorage, prefix, rootKey, [...path, prop])
+          : value;
       return {
-        value: current[prop],
+        value: descriptorValue,
         writable: true,
         enumerable: true,
         configurable: true,
