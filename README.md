@@ -43,9 +43,9 @@ interface AppStorage {
 **_2. Initialize_**
 
 ```typescript
-import { createStorage } from "./oto-storage";
+import { oto } from "oto-storage";
 
-const storage = createStorage<AppStorage>({
+const storage = oto<AppStorage>({
   prefix: "myApp-",
   driver: "local", // or 'session'
 });
