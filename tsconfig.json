@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    /* Base Options */
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "declaration": true /* Generates .d.ts files for users */,
+    "declarationMap": true /* Allows users to jump to your source code */,
+    "sourceMap": true /* Helpful for debugging */,
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    /* Strictness */
+    "strict": true /* Enables all strict type-checking options */,
+    "noUnusedLocals": true /* Report errors on unused local variables */,
+    "noUnusedParameters": true /* Report errors on unused parameters */,
+    "noImplicitReturns": true /* Report error when not all code paths in function return a value */,
+    "skipLibCheck": true /* Skip type checking of declaration files */,
+
+    /* Interop & Modernity */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+  },
+  "include": ["src/**/*"] /* Only compile what's in src */,
+  "exclude": ["node_modules", "tests", "dist"],
+}

@@ -1,6 +1,6 @@
 ![Oto mascot](https://private-user-images.githubusercontent.com/1720539/549868330-cf61ef7d-956e-4c5f-af5e-a8439bd95e3b.jpg?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzEwNjIxMDUsIm5iZiI6MTc3MTA2MTgwNSwicGF0aCI6Ii8xNzIwNTM5LzU0OTg2ODMzMC1jZjYxZWY3ZC05NTZlLTRjNWYtYWY1ZS1hODQzOWJkOTVlM2IuanBnP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDIxNCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjAyMTRUMDkzNjQ1WiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9NmVjYWY4NTczYzEyMTJjOTIwZjdkNjA0MGViNTVjMmI5ZTY1NGM0M2E5NjdlMjkyYWViOTdlODFlZWJkMGQzNyZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.FWuaQKYm55J5PO0tg4E-mrTE2ZcaqWhNueyhCCZPsyk)
 
-# Oto-Storage
+# Oto Storage
 
 A lightweight, Proxy-based wrapper for `localStorage` and `sessionStorage` with full TypeScript type safety.
 
@@ -16,7 +16,7 @@ localStorage.setItem("user_data", JSON.stringify({ ...user, theme: "dark" }));
 
 ### ✨ The Solution
 
-OtoStorage uses the JavaScript Proxy API to let you interact with browser storage as if it were a local object. It handles serialization, prefixing, and type-checking automatically.
+Oto storage uses the JavaScript Proxy API to let you interact with browser storage as if it were a local object. It handles serialization, prefixing, and type-checking automatically.
 
 **Key Features**
 
@@ -46,7 +46,7 @@ interface AppStorage {
 import { createStorage } from "./oto-storage";
 
 const storage = createStorage<AppStorage>({
-  prefix: "myApp\_",
+  prefix: "myApp-",
   driver: "local", // or 'session'
 });
 ```
@@ -61,15 +61,18 @@ storage.theme = "dark";
 if (storage.theme === "dark") {
   console.log("Dark mode active!");
 }
+
+// DELETE: Delete the key-value pair from storage
+delete storage.theme;
+
+// CLEAR: Clear entire record
+storage.clearAll();
 ```
 
 ### 🛠️ Architecture Decisions
 
 **_Why Proxy?_**
-I chose the Proxy API over a standard Class-based approach to improve Developer Experience (DX). By intercepting `get` and `set` traps, we eliminate the need for `.getItem()` or `.setItem()` methods, making the storage feel "native" to JavaScript.
+Choosing Proxy API over standard Class-based approach improves Developer Experience (DX). By intercepting `get` and `set` traps, we eliminate the need for `.getItem()` or `.setItem()` methods, making the storage feel "native" to JavaScript.
 
 **_Type Safety via Generics_**
 The library uses TypeScript Generics to map the user-provided interface to the Proxy. This ensures that if a developer tries to assign a `string` to a `number` field, the IDE will catch the error before the code even runs.
-
-**_The "Storage Driver" Strategy_**
-By implementing a common interface for `localStorage` and `sessionStorage`, the library remains agnostic of the underlying engine. This makes it easy to extend with a "Mock Driver" for server-side rendering (SSR) or testing environments.

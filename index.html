@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <h1>Check the Console</h1>
+    <script type="module">
+      // Import your library (point to your src or dist)
+      import { oto } from "./src/index.ts";
+
+      const storage = oto({ prefix: "demo_", type: "session" });
+
+      // Test Set
+      storage.user = { name: "Gemini", role: "AI" };
+      storage.theme = "New";
+      storage.power = { level: 9000 };
+
+      storage.clearAll();
+      // Test Get
+      console.log("User from storage:", storage.user);
+
+      // Test browser persistence
+      console.log("Raw LocalStorage:", localStorage.getItem("demo_user"));
+    </script>
+  </body>
+</html>

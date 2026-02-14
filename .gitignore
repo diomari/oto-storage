@@ -1,0 +1,34 @@
+# 1. Dependencies
+node_modules/
+.pnpm-store/
+
+# 2. Build Output
+dist/
+build/
+*.tsbuildinfo
+
+# 3. Testing
+coverage/
+.vitest/
+junit.xml
+
+# 4. Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 5. Environment & IDE
+.env
+.env.local
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# 6. OS Files
+.DS_Store
+Thumbs.db

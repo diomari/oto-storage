@@ -1,0 +1,37 @@
+{
+  "name": "oto-storage",
+  "version": "1.0.0",
+  "description": "A lightweight, type-safe wrapper for localStorage and sessionStorage using the Proxy API.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "typescript",
+    "localstorage",
+    "sessionstorage",
+    "proxy",
+    "type-safe",
+    "dx",
+    "storage-wrapper"
+  ],
+  "author": "Diomari Madulara",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2",
+    "jsdom": "^24.0.0",
+    "tsup": "^8.0.1",
+    "vite": "^5.1.0"
+  }
+}
