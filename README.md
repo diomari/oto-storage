@@ -1,6 +1,7 @@
-![Oto mascot](https://private-user-images.githubusercontent.com/1720539/549868330-cf61ef7d-956e-4c5f-af5e-a8439bd95e3b.jpg?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzEwNjIxMDUsIm5iZiI6MTc3MTA2MTgwNSwicGF0aCI6Ii8xNzIwNTM5LzU0OTg2ODMzMC1jZjYxZWY3ZC05NTZlLTRjNWYtYWY1ZS1hODQzOWJkOTVlM2IuanBnP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDIxNCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjAyMTRUMDkzNjQ1WiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9NmVjYWY4NTczYzEyMTJjOTIwZjdkNjA0MGViNTVjMmI5ZTY1NGM0M2E5NjdlMjkyYWViOTdlODFlZWJkMGQzNyZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.FWuaQKYm55J5PO0tg4E-mrTE2ZcaqWhNueyhCCZPsyk)
-
 # Oto Storage
+
+![npm version](https://img.shields.io/npm/v/oto-storage)
+![npm version](https://img.shields.io/npm/dm/oto-storage)
 
 A lightweight, Proxy-based wrapper for `localStorage` and `sessionStorage` with full TypeScript type safety.
 
