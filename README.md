@@ -273,8 +273,8 @@ storage.user = { name: "Alice" };  // Only set name
 console.log(storage.user);
 // { name: "Alice", role: "guest", active: false }
 
-// Access nested properties directly with defaults
-console.log(storage.user.name); // "Anonymous" (from default)
+// Access nested properties - stored value takes precedence over defaults
+console.log(storage.user.name); // "Alice" (stored value)
 ```
 
 **TTL / Expiration**

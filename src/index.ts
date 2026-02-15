@@ -28,7 +28,14 @@ function wrapWithTTL(value: any, ttl: number): any {
 }
 
 function unwrapWithTTL(wrapped: any): { value: any; expired: boolean } {
-  if (wrapped && typeof wrapped === "object" && "__oto_expires" in wrapped) {
+  // Only treat as TTL wrapper if both sentinel keys are present and __oto_expires is a number
+  if (
+    wrapped &&
+    typeof wrapped === "object" &&
+    "__oto_expires" in wrapped &&
+    "__oto_value" in wrapped &&
+    typeof wrapped.__oto_expires === "number"
+  ) {
     const expired = Date.now() > wrapped.__oto_expires;
     return { value: wrapped.__oto_value, expired };
   }
@@ -40,6 +47,7 @@ function getValueAtPath(
   prefix: string,
   rootKey: string,
   path: string[] = [],
+  ttl?: number,
 ): any {
   const fullKey = `${prefix}${rootKey}`;
   const storedValue = safeStorage.getItem(fullKey);
@@ -47,14 +55,16 @@ function getValueAtPath(
 
   try {
     let current = JSON.parse(storedValue);
-    // Unwrap TTL if present
-    const unwrapped = unwrapWithTTL(current);
-    if (unwrapped.expired) {
-      // Auto-delete expired key
-      safeStorage.removeItem(fullKey);
-      return undefined;
+    // Unwrap TTL if present and TTL is enabled
+    if (ttl && ttl > 0) {
+      const unwrapped = unwrapWithTTL(current);
+      if (unwrapped.expired) {
+        // Auto-delete expired key
+        safeStorage.removeItem(fullKey);
+        return undefined;
+      }
+      current = unwrapped.value;
     }
-    current = unwrapped.value;
     
     for (const key of path) {
       if (current === null || current === undefined) return undefined;
@@ -62,7 +72,8 @@ function getValueAtPath(
     }
     return current;
   } catch {
-    return undefined;
+    // Return raw string on parse error, consistent with root-level get trap
+    return storedValue;
   }
 }
 
@@ -77,12 +88,12 @@ function createNestedProxy(
   return new Proxy({} as any, {
     get(_target, prop: string | symbol) {
       if (typeof prop === "symbol") {
-        return (getValueAtPath(safeStorage, prefix, rootKey, path) as any)?.[
+        return (getValueAtPath(safeStorage, prefix, rootKey, path, ttl) as any)?.[
           prop
         ];
       }
 
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path);
+      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
       
       // Get defaults at this path level
       let defaultsAtPath: any;
@@ -122,9 +133,14 @@ function createNestedProxy(
 
       if (storedValue !== null) {
         try {
-          const parsed = JSON.parse(storedValue);
-          const unwrapped = unwrapWithTTL(parsed);
-          rootObj = unwrapped.expired ? {} : unwrapped.value;
+          let parsed = JSON.parse(storedValue);
+          // Only unwrap TTL if TTL is enabled
+          if (ttl && ttl > 0) {
+            const unwrapped = unwrapWithTTL(parsed);
+            rootObj = unwrapped.expired ? {} : unwrapped.value;
+          } else {
+            rootObj = parsed;
+          }
         } catch {
           rootObj = {};
         }
@@ -153,7 +169,7 @@ function createNestedProxy(
       }
     },
     ownKeys() {
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path);
+      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
       const keys = current ? Object.keys(current) : [];
       
       // Include keys from defaults at this path
@@ -181,7 +197,7 @@ function createNestedProxy(
     },
     getOwnPropertyDescriptor(_target, prop: string | symbol) {
       if (typeof prop === "symbol") return undefined;
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path);
+      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
       
       // Get defaults at this path level
       let defaultsAtPath: any;
@@ -223,7 +239,7 @@ function createNestedProxy(
     },
     has(_target, prop: string | symbol) {
       if (typeof prop === "symbol") return false;
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path);
+      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
       
       // Check if property exists in stored value
       if (current && typeof current === "object" && prop in current) {
@@ -293,14 +309,16 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
       } else {
         try {
           parsed = JSON.parse(storedValue);
-          // Check TTL wrapper
-          const unwrapped = unwrapWithTTL(parsed);
-          if (unwrapped.expired) {
-            // Auto-delete expired key
-            safeStorage.removeItem(`${prefix}${prop}`);
-            parsed = undefined;
-          } else {
-            parsed = unwrapped.value;
+          // Check TTL wrapper only if TTL is enabled
+          if (ttl && ttl > 0) {
+            const unwrapped = unwrapWithTTL(parsed);
+            if (unwrapped.expired) {
+              // Auto-delete expired key
+              safeStorage.removeItem(`${prefix}${prop}`);
+              parsed = undefined;
+            } else {
+              parsed = unwrapped.value;
+            }
           }
         } catch {
           parsed = storedValue;
