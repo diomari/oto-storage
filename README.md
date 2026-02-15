@@ -49,6 +49,10 @@ Oto storage uses the JavaScript Proxy API to let you interact with browser stora
 
 - **Collision Protection**: Automatic key prefixing (namespacing).
 
+- **Default Values**: Define fallback values for missing keys with deep merge support.
+
+- **TTL / Expiration**: Set automatic expiration for stored values.
+
 ### 🚀 Quick Start
 
 **_1. Define your Schema_**
@@ -237,6 +241,101 @@ storage.items = "abc"; // ✗ TypeScript error: Type 'string' is not assignable 
 import { oto, version } from "oto-storage";
 
 console.log(`Using oto-storage v${version}`);
+```
+
+**Default Values**
+
+Provide default values that are returned when keys don't exist in storage. Defaults support deep merging with stored values.
+
+```typescript
+interface AppStorage {
+  theme: "light" | "dark";
+  user: { name: string; role: string; active: boolean };
+}
+
+const storage = oto<AppStorage>({
+  prefix: "app-",
+  defaults: {
+    theme: "light",
+    user: { name: "Anonymous", role: "guest", active: false },
+  },
+});
+
+// Returns default when not set
+console.log(storage.theme); // "light"
+
+// Stored values override defaults
+storage.theme = "dark";
+console.log(storage.theme); // "dark"
+
+// Deep merge - partial updates preserve defaults
+storage.user = { name: "Alice" };  // Only set name
+console.log(storage.user);
+// { name: "Alice", role: "guest", active: false }
+
+// Access nested properties directly with defaults
+console.log(storage.user.name); // "Anonymous" (from default)
+```
+
+**TTL / Expiration**
+
+Automatically expire stored values after a specified time (in milliseconds). Expired keys are automatically deleted on access.
+
+```typescript
+interface SessionStorage {
+  token: string;
+  user: { id: string; name: string };
+}
+
+const storage = oto<SessionStorage>({
+  prefix: "session-",
+  ttl: 3600000, // 1 hour in milliseconds
+});
+
+// Store value - automatically wrapped with expiration
+storage.token = "abc123";
+
+// Value is accessible before expiration
+console.log(storage.token); // "abc123"
+
+// ... 1 hour later ...
+
+// Expired key is auto-deleted and returns undefined
+console.log(storage.token); // undefined
+
+// TTL works with nested objects too
+storage.user = { id: "1", name: "Alice" };
+storage.user.name = "Bob"; // Updates are also TTL-protected
+```
+
+**Combining Defaults and TTL**
+
+Use both features together for powerful patterns like session management:
+
+```typescript
+interface AuthStorage {
+  token: string | null;
+  user: { id: string; name: string } | null;
+}
+
+const auth = oto<AuthStorage>({
+  prefix: "auth-",
+  ttl: 3600000, // 1 hour
+  defaults: {
+    token: null,
+    user: null,
+  },
+});
+
+// Before login - returns defaults
+console.log(auth.token); // null
+
+// After login
+auth.token = "secret-token";
+auth.user = { id: "123", name: "Alice" };
+
+// ... after 1 hour (token expires) ...
+console.log(auth.token); // null (back to default)
 ```
 
 ### 🛠️ Architecture Decisions

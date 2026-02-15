@@ -494,4 +494,154 @@ describe("oto - Storage Proxy Library", () => {
             expect(storage.settings).toEqual({ theme: "dark", lang: "fr" });
         });
     });
+
+    describe("Default Values", () => {
+        it("should return default values when key does not exist", () => {
+            const storage = oto<{
+                theme: "light" | "dark";
+                count: number;
+            }>({
+                defaults: {
+                    theme: "light",
+                    count: 0,
+                },
+            });
+
+            expect(storage.theme).toBe("light");
+            expect(storage.count).toBe(0);
+        });
+
+        it("should override defaults with stored values", () => {
+            const storage = oto<{ theme: "light" | "dark" }>({
+                defaults: { theme: "light" },
+            });
+
+            storage.theme = "dark";
+            expect(storage.theme).toBe("dark");
+        });
+
+        it("should deep merge nested defaults", () => {
+            const storage = oto<{
+                user: { name: string; role: string; active: boolean };
+            }>({
+                defaults: {
+                    user: { name: "Anonymous", role: "guest", active: false },
+                },
+            });
+
+            // Only set name, other defaults should remain
+            storage.user = { name: "Alice" } as any;
+            expect(storage.user.name).toBe("Alice");
+            expect(storage.user.role).toBe("guest");
+            expect(storage.user.active).toBe(false);
+        });
+
+        it("should apply defaults to nested property access", () => {
+            const storage = oto<{
+                config: { theme: string; lang: string };
+            }>({
+                defaults: {
+                    config: { theme: "light", lang: "en" },
+                },
+            });
+
+            // Access nested property without setting parent first
+            expect(storage.config.theme).toBe("light");
+            expect(storage.config.lang).toBe("en");
+        });
+
+        it("should return undefined for keys without defaults when not stored", () => {
+            const storage = oto<{ existing: string; missing?: string }>({
+                defaults: { existing: "default" },
+            });
+
+            expect(storage.existing).toBe("default");
+            expect(storage.missing).toBeUndefined();
+        });
+    });
+
+    describe("TTL / Expiration", () => {
+        it("should store value with TTL wrapper when ttl is set", () => {
+            const storage = oto<{ token: string }>({
+                ttl: 3600000, // 1 hour
+            });
+
+            storage.token = "abc123";
+
+            // Check that the stored value has TTL structure
+            const stored = mockStorage["token"];
+            expect(stored).toBeDefined();
+            const parsed = JSON.parse(stored);
+            expect(parsed).toHaveProperty("__oto_value");
+            expect(parsed).toHaveProperty("__oto_expires");
+            expect(parsed.__oto_value).toBe("abc123");
+            expect(typeof parsed.__oto_expires).toBe("number");
+        });
+
+        it("should return value when not expired", () => {
+            const storage = oto<{ token: string }>({
+                ttl: 3600000,
+            });
+
+            storage.token = "abc123";
+            expect(storage.token).toBe("abc123");
+        });
+
+        it("should auto-delete and return undefined when expired", () => {
+            const storage = oto<{ token: string }>({
+                ttl: 1000, // 1 second
+            });
+
+            storage.token = "abc123";
+            expect(storage.token).toBe("abc123");
+
+            // Simulate time passing by manually setting expired timestamp
+            const stored = JSON.parse(mockStorage["token"]);
+            stored.__oto_expires = Date.now() - 1000; // Expired 1 second ago
+            mockStorage["token"] = JSON.stringify(stored);
+
+            // Access should auto-delete and return undefined
+            expect(storage.token).toBeUndefined();
+            expect(mockStorage["token"]).toBeUndefined();
+        });
+
+        it("should work with defaults when value expires", () => {
+            const storage = oto<{ theme: "light" | "dark" }>({
+                ttl: 1000,
+                defaults: { theme: "light" },
+            });
+
+            storage.theme = "dark";
+            expect(storage.theme).toBe("dark");
+
+            // Expire the value
+            const stored = JSON.parse(mockStorage["theme"]);
+            stored.__oto_expires = Date.now() - 1000;
+            mockStorage["theme"] = JSON.stringify(stored);
+
+            // Should return default after expiration
+            expect(storage.theme).toBe("light");
+        });
+
+        it("should handle nested object updates with TTL", () => {
+            const storage = oto<{
+                user: { name: string; role: string };
+            }>({
+                ttl: 3600000,
+            });
+
+            storage.user = { name: "Alice", role: "admin" };
+            expect(storage.user.name).toBe("Alice");
+
+            // Update nested property
+            storage.user.name = "Bob";
+            expect(storage.user.name).toBe("Bob");
+            expect(storage.user.role).toBe("admin");
+
+            // Verify TTL wrapper is still applied
+            const stored = JSON.parse(mockStorage["user"]);
+            expect(stored).toHaveProperty("__oto_value");
+            expect(stored.__oto_value.name).toBe("Bob");
+        });
+    });
 });
