@@ -25,26 +25,7 @@ pnpm add oto-storage
 
 ### 📚 Documentation Site (VitePress)
 
-This repo includes a VitePress documentation site in `/docs`.
 Live documentation: [https://oto.diom.dev](https://oto.diom.dev)
-
-```bash
-# Run docs locally
-npm run docs:dev
-
-# Build static docs
-npm run docs:build
-
-# Preview built docs
-npm run docs:preview
-```
-
-Cloudflare Pages deployment settings:
-
-- Project root: `/` (repo root)
-- Build command: `npm run docs:build`
-- Output directory: `docs/.vitepress/dist`
-- Environment variable (optional analytics): `GA_MEASUREMENT_ID=G-XXXXXXXXXX`
 
 ### ⚡ The Problem
 
