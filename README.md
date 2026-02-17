@@ -40,7 +40,7 @@ npm run docs:preview
 
 Cloudflare Pages deployment settings:
 
-- Project root: `docs`
+- Project root: `/` (repo root)
 - Build command: `npm run docs:build`
 - Output directory: `docs/.vitepress/dist`
 
