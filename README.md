@@ -26,6 +26,7 @@ pnpm add oto-storage
 ### 📚 Documentation Site (VitePress)
 
 This repo includes a VitePress documentation site in `/docs`.
+Live documentation: [https://oto.diom.dev](https://oto.diom.dev)
 
 ```bash
 # Run docs locally
