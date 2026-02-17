@@ -644,4 +644,100 @@ describe("oto - Storage Proxy Library", () => {
             expect(stored.__oto_value.name).toBe("Bob");
         });
     });
+
+    describe("Encryption", () => {
+        const encryption = {
+            encrypt: (plainText: string) => btoa(`key:${plainText}`),
+            decrypt: (cipherText: string) => {
+                const decoded = atob(cipherText);
+                if (!decoded.startsWith("key:")) {
+                    throw new Error("Invalid key");
+                }
+                return decoded.slice(4);
+            },
+        };
+
+        it("should store encrypted envelope when encryption is enabled", () => {
+            const storage = oto<{ token: string }>({ encryption });
+            storage.token = "abc123";
+
+            const rawStored = mockStorage["token"];
+            const parsed = JSON.parse(rawStored);
+            expect(parsed).toEqual({
+                __oto_encrypted: true,
+                __oto_payload: expect.any(String),
+            });
+            expect(rawStored.includes("abc123")).toBe(false);
+        });
+
+        it("should read encrypted values correctly", () => {
+            const storage = oto<{ token: string }>({ encryption });
+            storage.token = "abc123";
+            expect(storage.token).toBe("abc123");
+        });
+
+        it("should handle nested updates with encryption enabled", () => {
+            const storage = oto<{ user: { name: string; role: string } }>({
+                encryption,
+            });
+
+            storage.user = { name: "Alice", role: "admin" };
+            storage.user.name = "Bob";
+
+            expect(storage.user.name).toBe("Bob");
+            expect(storage.user.role).toBe("admin");
+
+            const parsed = JSON.parse(mockStorage["user"]);
+            expect(parsed.__oto_encrypted).toBe(true);
+            expect(parsed.__oto_payload).toEqual(expect.any(String));
+        });
+
+        it("should apply TTL and encryption together", () => {
+            const storage = oto<{ token: string }>({
+                ttl: 1000,
+                encryption,
+            });
+
+            storage.token = "abc123";
+            expect(storage.token).toBe("abc123");
+
+            const wrapped = JSON.parse(mockStorage["token"]);
+            const ttlPayload = JSON.parse(encryption.decrypt(wrapped.__oto_payload));
+            ttlPayload.__oto_expires = Date.now() - 1000;
+            wrapped.__oto_payload = encryption.encrypt(JSON.stringify(ttlPayload));
+            mockStorage["token"] = JSON.stringify(wrapped);
+
+            expect(storage.token).toBeUndefined();
+            expect(mockStorage["token"]).toBeUndefined();
+        });
+
+        it("should migrate plain JSON values when migrate is enabled", () => {
+            mockStorage["profile"] = JSON.stringify({ name: "Alice" });
+
+            const storage = oto<{ profile: { name: string } }>({
+                encryption: { ...encryption, migrate: true },
+            });
+
+            expect(storage.profile.name).toBe("Alice");
+
+            const migrated = JSON.parse(mockStorage["profile"]);
+            expect(migrated.__oto_encrypted).toBe(true);
+            expect(storage.profile.name).toBe("Alice");
+        });
+
+        it("should remove value when decryption fails", () => {
+            const storage = oto<{ token?: string }>({
+                encryption,
+                defaults: { token: "fallback" },
+            });
+
+            mockStorage["token"] = JSON.stringify({
+                __oto_encrypted: true,
+                __oto_payload: "invalid-cipher",
+            });
+
+            expect(storage.token).toBe("fallback");
+            expect(mockStorage["token"]).toBeUndefined();
+        });
+    });
 });

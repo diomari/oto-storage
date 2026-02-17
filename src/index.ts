@@ -3,6 +3,27 @@ interface StorageOptions {
   type?: "local" | "session";
   defaults?: Record<string, any>;
   ttl?: number;
+  encryption?: StorageEncryptionOptions;
+}
+
+interface StorageEncryptionOptions {
+  encrypt: (plainText: string) => string;
+  decrypt: (cipherText: string) => string;
+  migrate?: boolean;
+}
+
+interface EncryptedWrapper {
+  __oto_encrypted: true;
+  __oto_payload: string;
+}
+
+interface ReadStoredResult {
+  value: any;
+  rawParsed?: any;
+  parseError: boolean;
+  decryptionError: boolean;
+  expired: boolean;
+  wasEncrypted: boolean;
 }
 
 function deepMerge(target: any, source: any): any {
@@ -42,39 +63,155 @@ function unwrapWithTTL(wrapped: any): { value: any; expired: boolean } {
   return { value: wrapped, expired: false };
 }
 
+function isEncryptedWrapper(value: any): value is EncryptedWrapper {
+  return (
+    value &&
+    typeof value === "object" &&
+    value.__oto_encrypted === true &&
+    typeof value.__oto_payload === "string"
+  );
+}
+
+function serializeForStorage(
+  value: any,
+  ttl?: number,
+  encryption?: StorageEncryptionOptions,
+): string {
+  let valueToStore = value;
+  if (ttl && ttl > 0) {
+    valueToStore = wrapWithTTL(valueToStore, ttl);
+  }
+
+  if (!encryption) {
+    return JSON.stringify(valueToStore);
+  }
+
+  const plainText = JSON.stringify(valueToStore);
+  const cipherText = encryption.encrypt(plainText);
+  return JSON.stringify({
+    __oto_encrypted: true,
+    __oto_payload: cipherText,
+  } as EncryptedWrapper);
+}
+
+function migrateStoredValueToEncrypted(
+  safeStorage: Storage,
+  fullKey: string,
+  rawParsed: any,
+  encryption?: StorageEncryptionOptions,
+): void {
+  if (!encryption?.migrate || isEncryptedWrapper(rawParsed)) {
+    return;
+  }
+
+  try {
+    const cipherText = encryption.encrypt(JSON.stringify(rawParsed));
+    const wrapped: EncryptedWrapper = {
+      __oto_encrypted: true,
+      __oto_payload: cipherText,
+    };
+    safeStorage.setItem(fullKey, JSON.stringify(wrapped));
+  } catch (error) {
+    console.error(`TypedProxy: Failed to migrate ${fullKey} to encrypted format`, error);
+  }
+}
+
+function readStoredValue(
+  storedValue: string,
+  ttl?: number,
+  encryption?: StorageEncryptionOptions,
+): ReadStoredResult {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(storedValue);
+  } catch {
+    return {
+      value: storedValue,
+      parseError: true,
+      decryptionError: false,
+      expired: false,
+      wasEncrypted: false,
+    };
+  }
+
+  let payload = parsed;
+  let wasEncrypted = false;
+
+  if (encryption && isEncryptedWrapper(parsed)) {
+    wasEncrypted = true;
+    try {
+      const plainText = encryption.decrypt(parsed.__oto_payload);
+      payload = JSON.parse(plainText);
+    } catch {
+      return {
+        value: undefined,
+        rawParsed: parsed,
+        parseError: false,
+        decryptionError: true,
+        expired: false,
+        wasEncrypted,
+      };
+    }
+  }
+
+  if (ttl && ttl > 0) {
+    const unwrapped = unwrapWithTTL(payload);
+    if (unwrapped.expired) {
+      return {
+        value: undefined,
+        rawParsed: parsed,
+        parseError: false,
+        decryptionError: false,
+        expired: true,
+        wasEncrypted,
+      };
+    }
+    payload = unwrapped.value;
+  }
+
+  return {
+    value: payload,
+    rawParsed: parsed,
+    parseError: false,
+    decryptionError: false,
+    expired: false,
+    wasEncrypted,
+  };
+}
+
 function getValueAtPath(
   safeStorage: Storage,
   prefix: string,
   rootKey: string,
   path: string[] = [],
   ttl?: number,
+  encryption?: StorageEncryptionOptions,
 ): any {
   const fullKey = `${prefix}${rootKey}`;
   const storedValue = safeStorage.getItem(fullKey);
   if (storedValue === null) return undefined;
 
-  try {
-    let current = JSON.parse(storedValue);
-    // Unwrap TTL if present and TTL is enabled
-    if (ttl && ttl > 0) {
-      const unwrapped = unwrapWithTTL(current);
-      if (unwrapped.expired) {
-        // Auto-delete expired key
-        safeStorage.removeItem(fullKey);
-        return undefined;
-      }
-      current = unwrapped.value;
-    }
-    
-    for (const key of path) {
-      if (current === null || current === undefined) return undefined;
-      current = current[key];
-    }
-    return current;
-  } catch {
-    // Return raw string on parse error, consistent with root-level get trap
-    return storedValue;
+  const readResult = readStoredValue(storedValue, ttl, encryption);
+  if (readResult.expired || readResult.decryptionError) {
+    safeStorage.removeItem(fullKey);
+    return undefined;
   }
+
+  if (
+    encryption?.migrate &&
+    !readResult.parseError &&
+    !readResult.wasEncrypted &&
+    readResult.rawParsed !== undefined
+  ) {
+    migrateStoredValueToEncrypted(safeStorage, fullKey, readResult.rawParsed, encryption);
+  }
+
+  let current = readResult.value;
+  for (const key of path) {
+    if (current === null || current === undefined) return undefined;
+    current = current[key];
+  }
+  return current;
 }
 
 function createNestedProxy(
@@ -84,16 +221,24 @@ function createNestedProxy(
   path: string[] = [],
   defaultsAtRoot?: any,
   ttl?: number,
+  encryption?: StorageEncryptionOptions,
 ): any {
   return new Proxy({} as any, {
     get(_target, prop: string | symbol) {
       if (typeof prop === "symbol") {
-        return (getValueAtPath(safeStorage, prefix, rootKey, path, ttl) as any)?.[
+        return (getValueAtPath(safeStorage, prefix, rootKey, path, ttl, encryption) as any)?.[
           prop
         ];
       }
 
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
+      const current = getValueAtPath(
+        safeStorage,
+        prefix,
+        rootKey,
+        path,
+        ttl,
+        encryption,
+      );
       
       // Get defaults at this path level
       let defaultsAtPath: any;
@@ -122,7 +267,15 @@ function createNestedProxy(
       }
 
       if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-        return createNestedProxy(safeStorage, prefix, rootKey, [...path, prop], defaultsAtRoot, ttl);
+        return createNestedProxy(
+          safeStorage,
+          prefix,
+          rootKey,
+          [...path, prop],
+          defaultsAtRoot,
+          ttl,
+          encryption,
+        );
       }
       return value;
     },
@@ -132,18 +285,30 @@ function createNestedProxy(
       let rootObj: any = {};
 
       if (storedValue !== null) {
-        try {
-          let parsed = JSON.parse(storedValue);
-          // Only unwrap TTL if TTL is enabled
-          if (ttl && ttl > 0) {
-            const unwrapped = unwrapWithTTL(parsed);
-            rootObj = unwrapped.expired ? {} : unwrapped.value;
-          } else {
-            rootObj = parsed;
-          }
-        } catch {
+        const readResult = readStoredValue(storedValue, ttl, encryption);
+        if (readResult.expired || readResult.decryptionError) {
+          safeStorage.removeItem(fullKey);
           rootObj = {};
+        } else {
+          if (
+            encryption?.migrate &&
+            !readResult.parseError &&
+            !readResult.wasEncrypted &&
+            readResult.rawParsed !== undefined
+          ) {
+            migrateStoredValueToEncrypted(
+              safeStorage,
+              fullKey,
+              readResult.rawParsed,
+              encryption,
+            );
+          }
+          rootObj = readResult.value;
         }
+      }
+
+      if (rootObj === null || typeof rootObj !== "object" || Array.isArray(rootObj)) {
+        rootObj = {};
       }
 
       let current = rootObj;
@@ -156,12 +321,7 @@ function createNestedProxy(
       current[prop] = value;
 
       try {
-        let valueToStore = rootObj;
-        // Wrap with TTL if configured
-        if (ttl && ttl > 0) {
-          valueToStore = wrapWithTTL(rootObj, ttl);
-        }
-        safeStorage.setItem(fullKey, JSON.stringify(valueToStore));
+        safeStorage.setItem(fullKey, serializeForStorage(rootObj, ttl, encryption));
         return true;
       } catch (error) {
         console.error(`TypedProxy: Failed to save ${rootKey}`, error);
@@ -169,7 +329,14 @@ function createNestedProxy(
       }
     },
     ownKeys() {
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
+      const current = getValueAtPath(
+        safeStorage,
+        prefix,
+        rootKey,
+        path,
+        ttl,
+        encryption,
+      );
       const keys = current ? Object.keys(current) : [];
       
       // Include keys from defaults at this path
@@ -197,7 +364,14 @@ function createNestedProxy(
     },
     getOwnPropertyDescriptor(_target, prop: string | symbol) {
       if (typeof prop === "symbol") return undefined;
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
+      const current = getValueAtPath(
+        safeStorage,
+        prefix,
+        rootKey,
+        path,
+        ttl,
+        encryption,
+      );
       
       // Get defaults at this path level
       let defaultsAtPath: any;
@@ -228,7 +402,15 @@ function createNestedProxy(
 
       const descriptorValue =
         value !== null && typeof value === "object" && !Array.isArray(value)
-          ? createNestedProxy(safeStorage, prefix, rootKey, [...path, prop], defaultsAtRoot, ttl)
+          ? createNestedProxy(
+              safeStorage,
+              prefix,
+              rootKey,
+              [...path, prop],
+              defaultsAtRoot,
+              ttl,
+              encryption,
+            )
           : value;
       return {
         value: descriptorValue,
@@ -239,7 +421,14 @@ function createNestedProxy(
     },
     has(_target, prop: string | symbol) {
       if (typeof prop === "symbol") return false;
-      const current = getValueAtPath(safeStorage, prefix, rootKey, path, ttl);
+      const current = getValueAtPath(
+        safeStorage,
+        prefix,
+        rootKey,
+        path,
+        ttl,
+        encryption,
+      );
       
       // Check if property exists in stored value
       if (current && typeof current === "object" && prop in current) {
@@ -268,7 +457,7 @@ function createNestedProxy(
 }
 
 export function oto<T extends object>(options: StorageOptions = {}): T {
-  const { prefix = "", type = "local", defaults = {}, ttl } = options;
+  const { prefix = "", type = "local", defaults = {}, ttl, encryption } = options;
   const storage =
     typeof window !== "undefined"
       ? type === "session"
@@ -301,27 +490,32 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
           });
         };
       }
-      const storedValue = safeStorage.getItem(`${prefix}${prop}`);
+      const fullKey = `${prefix}${prop}`;
+      const storedValue = safeStorage.getItem(fullKey);
       let parsed: any;
 
       if (storedValue === null) {
         parsed = undefined;
       } else {
-        try {
-          parsed = JSON.parse(storedValue);
-          // Check TTL wrapper only if TTL is enabled
-          if (ttl && ttl > 0) {
-            const unwrapped = unwrapWithTTL(parsed);
-            if (unwrapped.expired) {
-              // Auto-delete expired key
-              safeStorage.removeItem(`${prefix}${prop}`);
-              parsed = undefined;
-            } else {
-              parsed = unwrapped.value;
-            }
+        const readResult = readStoredValue(storedValue, ttl, encryption);
+        if (readResult.expired || readResult.decryptionError) {
+          safeStorage.removeItem(fullKey);
+          parsed = undefined;
+        } else {
+          if (
+            encryption?.migrate &&
+            !readResult.parseError &&
+            !readResult.wasEncrypted &&
+            readResult.rawParsed !== undefined
+          ) {
+            migrateStoredValueToEncrypted(
+              safeStorage,
+              fullKey,
+              readResult.rawParsed,
+              encryption,
+            );
           }
-        } catch {
-          parsed = storedValue;
+          parsed = readResult.value;
         }
       }
 
@@ -337,19 +531,21 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
         typeof parsed === "object" &&
         !Array.isArray(parsed)
       ) {
-        return createNestedProxy(safeStorage, prefix, prop, [], defaults[prop], ttl);
+        return createNestedProxy(
+          safeStorage,
+          prefix,
+          prop,
+          [],
+          defaults[prop],
+          ttl,
+          encryption,
+        );
       }
       return parsed;
     },
     set(_target, prop: string, value: any) {
       try {
-        let valueToStore = value;
-        // Wrap with TTL if configured
-        if (ttl && ttl > 0) {
-          valueToStore = wrapWithTTL(value, ttl);
-        }
-        const stringValue = JSON.stringify(valueToStore);
-        safeStorage.setItem(`${prefix}${prop}`, stringValue);
+        safeStorage.setItem(`${prefix}${prop}`, serializeForStorage(value, ttl, encryption));
         return true;
       } catch (error) {
         console.error(`TypedProxy: Failed to save ${prop}`, error);
@@ -375,5 +571,5 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
   });
 }
 
-export const version = "0.3.3";
-export type { StorageOptions };
+export const version = "0.4.0";
+export type { StorageOptions, StorageEncryptionOptions };
