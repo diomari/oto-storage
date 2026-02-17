@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
   title: "oto-storage",
   description: "Type-safe localStorage/sessionStorage wrapper with TTL, defaults, and encryption hooks.",
+  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }]],
   lastUpdated: true,
   cleanUrls: true,
   themeConfig: {
