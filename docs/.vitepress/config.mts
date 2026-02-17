@@ -47,7 +47,7 @@ export default defineConfig({
     },
     footer: {
       message: "Released under the MIT License.",
-      copyright: "Copyright © 2026 Diomari Madulara",
+      copyright: 'Copyright © 2026 <a href="https://diom.dev" target="_blank" rel="noreferrer">Diomari Madulara</a>',
     },
   },
 });

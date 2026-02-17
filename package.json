@@ -36,8 +36,9 @@
     "dx",
     "storage-wrapper"
   ],
-  "author": "Diomari Madulara",
+  "author": "Diomari Madulara (https://diom.dev)",
   "license": "MIT",
+  "homepage": "https://oto.diom.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/diomari/oto-storage.git"
