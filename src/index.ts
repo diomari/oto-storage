@@ -569,5 +569,5 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
   });
 }
 
-export const version = "0.4.0";
+export const version = "0.4.2";
 export type { StorageOptions, StorageEncryptionOptions };
