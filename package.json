@@ -37,7 +37,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/diomari/oto-storage"
+    "url": "git+https://github.com/diomari/oto-storage.git"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

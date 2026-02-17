@@ -313,6 +313,7 @@ storage.user.name = "Bob"; // Updates are also TTL-protected
 **Encryption**
 
 Use custom synchronous `encrypt`/`decrypt` hooks to protect stored payloads at rest.
+Security warning: `btoa`/`atob` is encoding, not cryptographic encryption. Use `encryption.encrypt`/`encryption.decrypt` with a real cipher (for example Web Crypto AES-GCM) in production.
 
 ```typescript
 interface SecureStorage {
@@ -341,6 +342,7 @@ console.log(secure.token); // "abc123"
 ```
 
 `encryption.migrate` helps adopt encryption without a one-time migration script by upgrading plain JSON entries as they are read.
+Reserved keys note: `__oto_encrypted` and `__oto_payload` are used by the encryption envelope. If your stored object uses both keys with the same shape, it will be treated as encrypted data by `readStoredValue`/`isEncryptedWrapper`.
 
 Encryption + TTL work together automatically. Expired encrypted entries are deleted on access, just like non-encrypted TTL values.
 

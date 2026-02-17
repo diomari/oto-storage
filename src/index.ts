@@ -7,6 +7,8 @@ interface StorageOptions {
 }
 
 interface StorageEncryptionOptions {
+  // Reserved envelope keys: "__oto_encrypted" and "__oto_payload".
+  // Any stored object with this shape is treated as an encrypted wrapper.
   encrypt: (plainText: string) => string;
   decrypt: (cipherText: string) => string;
   migrate?: boolean;
@@ -116,6 +118,22 @@ function migrateStoredValueToEncrypted(
   }
 }
 
+function maybeMigrate(
+  safeStorage: Storage,
+  fullKey: string,
+  readResult: ReadStoredResult,
+  encryption?: StorageEncryptionOptions,
+): void {
+  if (
+    encryption?.migrate &&
+    !readResult.parseError &&
+    !readResult.wasEncrypted &&
+    readResult.rawParsed !== undefined
+  ) {
+    migrateStoredValueToEncrypted(safeStorage, fullKey, readResult.rawParsed, encryption);
+  }
+}
+
 function readStoredValue(
   storedValue: string,
   ttl?: number,
@@ -197,14 +215,7 @@ function getValueAtPath(
     return undefined;
   }
 
-  if (
-    encryption?.migrate &&
-    !readResult.parseError &&
-    !readResult.wasEncrypted &&
-    readResult.rawParsed !== undefined
-  ) {
-    migrateStoredValueToEncrypted(safeStorage, fullKey, readResult.rawParsed, encryption);
-  }
+  maybeMigrate(safeStorage, fullKey, readResult, encryption);
 
   let current = readResult.value;
   for (const key of path) {
@@ -290,19 +301,6 @@ function createNestedProxy(
           safeStorage.removeItem(fullKey);
           rootObj = {};
         } else {
-          if (
-            encryption?.migrate &&
-            !readResult.parseError &&
-            !readResult.wasEncrypted &&
-            readResult.rawParsed !== undefined
-          ) {
-            migrateStoredValueToEncrypted(
-              safeStorage,
-              fullKey,
-              readResult.rawParsed,
-              encryption,
-            );
-          }
           rootObj = readResult.value;
         }
       }
@@ -502,19 +500,7 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
           safeStorage.removeItem(fullKey);
           parsed = undefined;
         } else {
-          if (
-            encryption?.migrate &&
-            !readResult.parseError &&
-            !readResult.wasEncrypted &&
-            readResult.rawParsed !== undefined
-          ) {
-            migrateStoredValueToEncrypted(
-              safeStorage,
-              fullKey,
-              readResult.rawParsed,
-              encryption,
-            );
-          }
+          maybeMigrate(safeStorage, fullKey, readResult, encryption);
           parsed = readResult.value;
         }
       }
@@ -553,15 +539,27 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
       }
     },
     has(_target, prop: string) {
-      // Check if key exists in storage
-      if (safeStorage.getItem(`${prefix}${prop}`) !== null) {
-        return true;
-      }
       // Check if key exists in defaults
       if (defaults && prop in defaults) {
         return true;
       }
-      return false;
+
+      const fullKey = `${prefix}${prop}`;
+      const storedValue = safeStorage.getItem(fullKey);
+      if (storedValue === null) {
+        return false;
+      }
+
+      try {
+        const readResult = readStoredValue(storedValue, ttl, encryption);
+        if (readResult.expired || readResult.decryptionError) {
+          safeStorage.removeItem(fullKey);
+          return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
     },
     deleteProperty(_target, prop: string) {
       const key = `${prefix}${String(prop)}`;
