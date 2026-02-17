@@ -44,6 +44,7 @@ Cloudflare Pages deployment settings:
 - Project root: `/` (repo root)
 - Build command: `npm run docs:build`
 - Output directory: `docs/.vitepress/dist`
+- Environment variable (optional analytics): `GA_MEASUREMENT_ID=G-XXXXXXXXXX`
 
 ### ⚡ The Problem
 

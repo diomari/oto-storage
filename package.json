@@ -24,7 +24,7 @@
     "lint": "tsc --noEmit",
     "preview": "vite preview",
     "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs",
+    "docs:build": "vitepress build docs && node scripts/inject-ga.mjs",
     "docs:preview": "vitepress preview docs"
   },
   "keywords": [
