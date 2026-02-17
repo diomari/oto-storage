@@ -23,6 +23,27 @@ Or with pnpm:
 pnpm add oto-storage
 ```
 
+### 📚 Documentation Site (VitePress)
+
+This repo includes a VitePress documentation site in `/docs`.
+
+```bash
+# Run docs locally
+npm run docs:dev
+
+# Build static docs
+npm run docs:build
+
+# Preview built docs
+npm run docs:preview
+```
+
+Cloudflare Pages deployment settings:
+
+- Project root: `docs`
+- Build command: `npm run docs:build`
+- Output directory: `docs/.vitepress/dist`
+
 ### ⚡ The Problem
 
 Working with browser storage usually involves repetitive `JSON.parse` and `JSON.stringify` calls, manual key prefixing to avoid collisions, and a total lack of Type Safety.
