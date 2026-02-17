@@ -53,6 +53,8 @@ Oto storage uses the JavaScript Proxy API to let you interact with browser stora
 
 - **TTL / Expiration**: Set automatic expiration for stored values.
 
+- **Custom Encryption Hooks**: Encrypt/decrypt stored values with your own sync crypto callbacks.
+
 ### 🚀 Quick Start
 
 **_1. Define your Schema_**
@@ -307,6 +309,44 @@ console.log(storage.token); // undefined
 storage.user = { id: "1", name: "Alice" };
 storage.user.name = "Bob"; // Updates are also TTL-protected
 ```
+
+**Encryption**
+
+Use custom synchronous `encrypt`/`decrypt` hooks to protect stored payloads at rest.
+Security warning: `btoa`/`atob` is encoding, not cryptographic encryption. Use `encryption.encrypt`/`encryption.decrypt` with a real cipher (for example Web Crypto AES-GCM) in production.
+
+```typescript
+interface SecureStorage {
+  token: string;
+  profile: { id: string; name: string };
+}
+
+const keyPrefix = "my-secret-key:";
+const secure = oto<SecureStorage>({
+  prefix: "secure-",
+  encryption: {
+    encrypt: (plainText) => btoa(`${keyPrefix}${plainText}`),
+    decrypt: (cipherText) => {
+      const decoded = atob(cipherText);
+      if (!decoded.startsWith(keyPrefix)) {
+        throw new Error("Invalid encryption key");
+      }
+      return decoded.slice(keyPrefix.length);
+    },
+    migrate: true, // Optional: auto-wrap existing plain JSON entries on read
+  },
+});
+
+secure.token = "abc123";
+console.log(secure.token); // "abc123"
+```
+
+`encryption.migrate` helps adopt encryption without a one-time migration script by upgrading plain JSON entries as they are read.
+Reserved keys note: `__oto_encrypted` and `__oto_payload` are used by the encryption envelope. If your stored object uses both keys with the same shape, it will be treated as encrypted data by `readStoredValue`/`isEncryptedWrapper`.
+
+Encryption + TTL work together automatically. Expired encrypted entries are deleted on access, just like non-encrypted TTL values.
+
+Security note: this feature protects data at rest in storage, but it does not protect against active XSS (malicious runtime code can access your encryption callbacks and decrypted values).
 
 **Combining Defaults and TTL**
 
