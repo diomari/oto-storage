@@ -697,5 +697,5 @@ export function oto<T extends object>(
   });
 }
 
-export const version = "0.4.3";
+export const version = "0.4.4";
 export type { OtoChangeEvent, OtoMethods, StorageOptions, StorageEncryptionOptions };
