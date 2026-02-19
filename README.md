@@ -59,6 +59,8 @@ Oto storage uses the JavaScript Proxy API to let you interact with browser stora
 
 - **Custom Encryption Hooks**: Encrypt/decrypt stored values with your own sync crypto callbacks.
 
+- **Cross-Tab Sync API**: Subscribe to `storage` events with typed callbacks.
+
 ### 🚀 Quick Start
 
 **_1. Define your Schema_**
@@ -222,6 +224,28 @@ delete storage.count;
 
 // Clear all keys with this storage's prefix
 storage.clearAll();
+```
+
+**Cross-tab Sync**
+
+Listen for updates made in other tabs/windows for the same origin.
+
+```typescript
+const storage = oto<{ theme: "light" | "dark"; count: number }>({
+  prefix: "app-",
+});
+
+const stopAll = storage.subscribe((change) => {
+  console.log(change.key, change.oldValue, "->", change.newValue);
+});
+
+const stopTheme = storage.onChange("theme", (value) => {
+  console.log("Theme changed to:", value);
+});
+
+// Later
+stopTheme();
+stopAll();
 ```
 
 **Type Safety at Work**

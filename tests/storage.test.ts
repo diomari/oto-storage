@@ -456,6 +456,116 @@ describe("oto - Storage Proxy Library", () => {
         });
     });
 
+    describe("Cross-tab Sync API", () => {
+        const dispatchStorage = (init: {
+            key: string | null;
+            oldValue: string | null;
+            newValue: string | null;
+            storageArea: Storage | null;
+        }) => {
+            const event = new Event("storage");
+            Object.defineProperties(event, {
+                key: { value: init.key, configurable: true },
+                oldValue: { value: init.oldValue, configurable: true },
+                newValue: { value: init.newValue, configurable: true },
+                storageArea: { value: init.storageArea, configurable: true },
+            });
+            window.dispatchEvent(event);
+        };
+
+        it("should notify subscribe listeners on matching storage events", () => {
+            const storage = oto<{ theme: string }>({ prefix: "app_" });
+            const listener = vi.fn();
+            const unsubscribe = storage.subscribe(listener);
+
+            dispatchStorage({
+                key: "app_theme",
+                oldValue: '"light"',
+                newValue: '"dark"',
+                storageArea: window.localStorage,
+            });
+
+            expect(listener).toHaveBeenCalledTimes(1);
+            expect(listener).toHaveBeenCalledWith({
+                key: "theme",
+                oldValue: "light",
+                newValue: "dark",
+            });
+
+            unsubscribe();
+        });
+
+        it("should notify onChange listeners for a specific key only", () => {
+            const storage = oto<{ theme: string; count: number }>({
+                prefix: "app_",
+            });
+            const listener = vi.fn();
+            const unsubscribe = storage.onChange("theme", listener);
+
+            dispatchStorage({
+                key: "app_count",
+                oldValue: "1",
+                newValue: "2",
+                storageArea: window.localStorage,
+            });
+
+            dispatchStorage({
+                key: "app_theme",
+                oldValue: '"light"',
+                newValue: '"dark"',
+                storageArea: window.localStorage,
+            });
+
+            expect(listener).toHaveBeenCalledTimes(1);
+            expect(listener).toHaveBeenCalledWith("dark", {
+                key: "theme",
+                oldValue: "light",
+                newValue: "dark",
+            });
+
+            unsubscribe();
+        });
+
+        it("should ignore non-matching prefixes and storage areas", () => {
+            const storage = oto<{ theme: string }>({ prefix: "app_" });
+            const listener = vi.fn();
+            const unsubscribe = storage.subscribe(listener);
+
+            dispatchStorage({
+                key: "other_theme",
+                oldValue: '"light"',
+                newValue: '"dark"',
+                storageArea: window.localStorage,
+            });
+
+            dispatchStorage({
+                key: "app_theme",
+                oldValue: '"light"',
+                newValue: '"dark"',
+                storageArea: window.sessionStorage,
+            });
+
+            expect(listener).not.toHaveBeenCalled();
+            unsubscribe();
+        });
+
+        it("should stop notifying after unsubscribe", () => {
+            const storage = oto<{ theme: string }>({ prefix: "app_" });
+            const listener = vi.fn();
+            const unsubscribe = storage.subscribe(listener);
+            unsubscribe();
+
+            dispatchStorage({
+                key: "app_theme",
+                oldValue: '"light"',
+                newValue: '"dark"',
+                storageArea: window.localStorage,
+            });
+
+            expect(listener).not.toHaveBeenCalled();
+        });
+    });
+
     describe("Nested Property Updates", () => {
         it("should update nested object properties", () => {
             const storage = oto<{ user: { name: string; age: number } }>();
