@@ -28,6 +28,26 @@ interface ReadStoredResult {
   wasEncrypted: boolean;
 }
 
+type Unsubscribe = () => void;
+
+interface OtoChangeEvent<T extends object, K extends keyof T = keyof T> {
+  key: K;
+  newValue: T[K] | undefined;
+  oldValue: T[K] | undefined;
+}
+
+interface OtoMethods<T extends object> {
+  clearAll: () => void;
+  subscribe: (listener: (change: OtoChangeEvent<T>) => void) => Unsubscribe;
+  onChange: <K extends keyof T>(
+    key: K,
+    listener: (
+      value: T[K] | undefined,
+      change: OtoChangeEvent<T, K>,
+    ) => void,
+  ) => Unsubscribe;
+}
+
 function deepMerge(target: any, source: any): any {
   if (source === null || source === undefined) return target;
   if (target === null || target === undefined) return source;
@@ -195,6 +215,17 @@ function readStoredValue(
     expired: false,
     wasEncrypted,
   };
+}
+
+function parseStorageEventValue(
+  storedValue: string | null,
+  ttl?: number,
+  encryption?: StorageEncryptionOptions,
+): any {
+  if (storedValue === null) return undefined;
+  const readResult = readStoredValue(storedValue, ttl, encryption);
+  if (readResult.expired || readResult.decryptionError) return undefined;
+  return readResult.value;
 }
 
 function getValueAtPath(
@@ -454,7 +485,9 @@ function createNestedProxy(
   });
 }
 
-export function oto<T extends object>(options: StorageOptions = {}): T {
+export function oto<T extends object>(
+  options: StorageOptions = {},
+): T & OtoMethods<T> {
   const { prefix = "", type = "local", defaults = {}, ttl, encryption } = options;
   const storage =
     typeof window !== "undefined"
@@ -474,7 +507,64 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
     },
   };
 
-  return new Proxy({} as T, {
+  const anyListeners = new Set<(change: OtoChangeEvent<T>) => void>();
+  const keyListeners = new Map<keyof T, Set<(change: OtoChangeEvent<T, any>) => void>>();
+  let detachStorageListener: Unsubscribe | null = null;
+
+  const notifyListeners = (change: OtoChangeEvent<T>) => {
+    anyListeners.forEach((listener) => listener(change));
+    const listenersForKey = keyListeners.get(change.key);
+    if (!listenersForKey) return;
+    listenersForKey.forEach((listener) => listener(change));
+  };
+
+  const ensureStorageListener = () => {
+    if (
+      detachStorageListener ||
+      typeof window === "undefined" ||
+      typeof window.addEventListener !== "function"
+    ) {
+      return;
+    }
+
+    const handler = (event: StorageEvent) => {
+      if (event.storageArea !== safeStorage || !event.key) return;
+      if (!event.key.startsWith(prefix)) return;
+
+      const key = event.key.slice(prefix.length) as keyof T;
+      const newValue = parseStorageEventValue(
+        event.newValue,
+        ttl,
+        encryption,
+      ) as T[keyof T] | undefined;
+      const oldValue = parseStorageEventValue(
+        event.oldValue,
+        ttl,
+        encryption,
+      ) as T[keyof T] | undefined;
+
+      notifyListeners({
+        key,
+        newValue,
+        oldValue,
+      });
+    };
+
+    window.addEventListener("storage", handler);
+    detachStorageListener = () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", handler);
+      }
+      detachStorageListener = null;
+    };
+  };
+
+  const maybeDetachStorageListener = () => {
+    if (anyListeners.size > 0 || keyListeners.size > 0) return;
+    detachStorageListener?.();
+  };
+
+  return new Proxy({} as T & OtoMethods<T>, {
     get(_target, prop: string) {
       if (prop === "clearAll") {
         return () => {
@@ -486,6 +576,44 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
           keys.forEach((key) => {
             if (key.startsWith(prefix)) safeStorage.removeItem(key);
           });
+        };
+      }
+      if (prop === "subscribe") {
+        return (listener: (change: OtoChangeEvent<T>) => void): Unsubscribe => {
+          anyListeners.add(listener);
+          ensureStorageListener();
+          return () => {
+            anyListeners.delete(listener);
+            maybeDetachStorageListener();
+          };
+        };
+      }
+      if (prop === "onChange") {
+        return <K extends keyof T>(
+          key: K,
+          listener: (
+            value: T[K] | undefined,
+            change: OtoChangeEvent<T, K>,
+          ) => void,
+        ): Unsubscribe => {
+          const wrappedListener = (change: OtoChangeEvent<T, K>) => {
+            listener(change.newValue, change);
+          };
+          const listenersForKey = keyListeners.get(key) || new Set();
+          listenersForKey.add(wrappedListener as (change: OtoChangeEvent<T, any>) => void);
+          keyListeners.set(key, listenersForKey);
+          ensureStorageListener();
+          return () => {
+            const currentListeners = keyListeners.get(key);
+            if (!currentListeners) return;
+            currentListeners.delete(
+              wrappedListener as (change: OtoChangeEvent<T, any>) => void,
+            );
+            if (currentListeners.size === 0) {
+              keyListeners.delete(key);
+            }
+            maybeDetachStorageListener();
+          };
         };
       }
       const fullKey = `${prefix}${prop}`;
@@ -569,5 +697,5 @@ export function oto<T extends object>(options: StorageOptions = {}): T {
   });
 }
 
-export const version = "0.4.3";
-export type { StorageOptions, StorageEncryptionOptions };
+export const version = "0.4.4";
+export type { OtoChangeEvent, OtoMethods, StorageOptions, StorageEncryptionOptions };
